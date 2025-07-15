@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-config
+  namespace: sentinel
+  labels:
+    app: sentinel
+data:
+  monitoring-interval: "60000"
+  memory-threshold: "0.85"
+  detection-sensitivity: "medium"
+  performance-enabled: "true"
+  cache-enabled: "true"
+  security-enabled: "true"
+  
+  # Monitoring configuration
+  monitoring.yaml: |
+    monitoring:
+      interval: 60000
+      detailed: true
+      gc: true
+      processes: true
+    
+    detection:
+      enabled: true
+      sensitivity: medium
+      algorithms:
+        - rapid-growth
+        - steady-growth
+        - gc-pressure
+        - sawtooth-pattern
+      baseline:
+        samples: 10
+        stabilization: 300000
+    
+    threshold:
+      heap: 0.85
+      growth: 0.1
+      gc:
+        frequency: 10
+        duration: 100
+    
+    performance:
+      adaptive:
+        enabled: true
+        minInterval: 5000
+        maxInterval: 120000
+        loadThreshold: 0.8
+        memoryThreshold: 0.85
+      
+      sampling:
+        enabled: true
+        strategy: adaptive
+        baseRate: 1.0
+        minRate: 0.1
+        maxRate: 1.0
+      
+      cache:
+        enabled: true
+        maxSize: 100
+        ttl: 300000
+        compressionThreshold: 1024
+    
+    security:
+      accessControl:
+        enabled: true
+        maxRequestsPerMinute: 100
+      
+      validation:
+        maxInputLength: 10000
+        sanitizeHtml: true
+        validateUrls: true
+      
+      audit:
+        enabled: true
+        logLevel: info
+        retentionDays: 30
+      
+      threatDetection:
+        enabled: true
+        maxFailedAttempts: 5
+        blockDuration: 300000
+    
+    reporting:
+      console: true
+      format: json
+  
+  # Nginx configuration
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        upstream sentinel_app {
+            least_conn;
+            server sentinel-app-service:3000 max_fails=3 fail_timeout=30s;
+        }
+        
+        upstream sentinel_dashboard {
+            server sentinel-dashboard-service:3001 max_fails=3 fail_timeout=30s;
+        }
+        
+        limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+        limit_req_zone $binary_remote_addr zone=dashboard:10m rate=5r/s;
+        
+        server {
+            listen 80;
+            
+            location /health {
+                proxy_pass http://sentinel_app;
+            }
+            
+            location /api/ {
+                limit_req zone=api burst=20 nodelay;
+                proxy_pass http://sentinel_app;
+            }
+            
+            location /dashboard/ {
+                limit_req zone=dashboard burst=10 nodelay;
+                proxy_pass http://sentinel_dashboard/;
+            }
+            
+            location / {
+                return 301 /dashboard/;
+            }
+        }
+    }

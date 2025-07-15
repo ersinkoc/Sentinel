@@ -1,0 +1,117 @@
+{
+  "name": "@oxog/sentinel",
+  "version": "1.0.0",
+  "description": "Zero-dependency memory monitoring and leak detection for Node.js",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "sentinel": "./bin/sentinel.js"
+  },
+  "scripts": {
+    "test": "node test/runner.js",
+    "test:unit": "node test/runner.js --filter=unit",
+    "test:integration": "node test/runner.js --filter=integration", 
+    "test:performance": "node test/runner.js --filter=performance",
+    "test:stress": "node test/runner.js --filter=stress",
+    "test:e2e": "node test/runner.js --filter=e2e",
+    "test:coverage": "node --experimental-test-coverage test/runner.js",
+    "test:watch": "node test/runner.js --watch",
+    "benchmark": "node benchmark/index.js",
+    "build": "npm run build:types && npm run build:docs",
+    "build:types": "tsc --declaration --emitDeclarationOnly",
+    "build:docs": "jsdoc -c jsdoc.config.json",
+    "lint": "eslint src/ packages/ bin/ test/ benchmark/",
+    "lint:fix": "eslint src/ packages/ bin/ test/ benchmark/ --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\"",
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix",
+    "security": "npm audit && npm run security:check",
+    "security:check": "node scripts/security-check.js",
+    "precommit": "lint-staged",
+    "prepare": "husky install",
+    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "postpublish": "npm run tag",
+    "tag": "git tag v$npm_package_version && git push origin v$npm_package_version",
+    "clean": "rm -rf types/ docs/ coverage/ *.log",
+    "dev": "node --inspect bin/sentinel.js watch",
+    "start": "node bin/sentinel.js",
+    "validate": "npm run lint && npm run test && npm run build"
+  },
+  "keywords": [
+    "memory",
+    "leak",
+    "detection",
+    "monitoring",
+    "heap",
+    "profiler",
+    "zero-dependency",
+    "performance",
+    "v8",
+    "diagnostics"
+  ],
+  "author": "Ersin Koç",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ersinkoc/sentinel"
+  },
+  "bugs": {
+    "url": "https://github.com/ersinkoc/sentinel/issues"
+  },
+  "homepage": "https://github.com/ersinkoc/sentinel",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "express": "^5.1.0",
+    "husky": "^9.0.0",
+    "jsdoc": "^4.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "express": ">=4.0.0 || >=5.0.0",
+    "fastify": ">=4.0.0",
+    "koa": ">=2.0.0",
+    "next": ">=12.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "koa": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "src/",
+    "packages/",
+    "bin/",
+    "types/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/ersinkoc"
+  }
+}

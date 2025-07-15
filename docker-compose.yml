@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Development environment
+  sentinel-dev:
+    build:
+      context: .
+      target: development
+    environment:
+      - NODE_ENV=development
+      - SENTINEL_MONITORING_ENABLED=true
+      - SENTINEL_DETECTION_ENABLED=true
+      - SENTINEL_REPORTING_CONSOLE=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    networks:
+      - sentinel-network
+
+  # Production application
+  sentinel-app:
+    build:
+      context: .
+      target: production
+    environment:
+      - NODE_ENV=production
+      - SENTINEL_MONITORING_ENABLED=true
+      - SENTINEL_DETECTION_ENABLED=true
+      - SENTINEL_DETECTION_SENSITIVITY=high
+      - SENTINEL_REPORTING_CONSOLE=false
+      - SENTINEL_REPORTING_FILE=/app/logs/sentinel.log
+      - SENTINEL_PERFORMANCE_LOWIMPACTMODE=true
+    volumes:
+      - sentinel-logs:/app/logs
+    ports:
+      - "3000:3000"
+    networks:
+      - sentinel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('./index').getInstance().getHealth()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Monitoring dashboard
+  sentinel-dashboard:
+    build:
+      context: .
+      target: monitoring
+    environment:
+      - NODE_ENV=production
+      - SENTINEL_DASHBOARD_PORT=3001
+      - SENTINEL_DASHBOARD_HOST=0.0.0.0
+      - SENTINEL_STREAMING_ENABLED=true
+    volumes:
+      - sentinel-logs:/app/logs
+    ports:
+      - "3001:3001"
+    networks:
+      - sentinel-network
+    restart: unless-stopped
+    depends_on:
+      - sentinel-app
+
+volumes:
+  sentinel-logs:
+
+networks:
+  sentinel-network:
+    driver: bridge

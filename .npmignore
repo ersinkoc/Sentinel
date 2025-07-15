@@ -1,0 +1,47 @@
+# Development files
+test/
+benchmark/
+.github/
+.vscode/
+.idea/
+
+# Configuration files
+.eslintrc.js
+.prettierrc
+tsconfig.json
+jsdoc.config.json
+
+# Documentation source
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+
+# Build and dev artifacts
+coverage/
+*.log
+*.heapsnapshot
+*.cpuprofile
+benchmark-results-*.json
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github/
+appveyor.yml
+.travis.yml
+
+# Dev dependencies
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db

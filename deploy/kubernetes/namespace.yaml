@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinel
+  labels:
+    name: sentinel
+    app.kubernetes.io/name: sentinel
+    app.kubernetes.io/instance: sentinel
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: sentinel-stack

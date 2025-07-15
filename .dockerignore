@@ -1,0 +1,116 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime
+*.log
+*.pid
+*.seed
+*.pid.lock
+.npm
+.cache
+.parcel-cache
+
+# Coverage directory used by tools like istanbul
+coverage
+.nyc_output
+*.lcov
+
+# Environment variables
+.env*
+!.env.example
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.editorconfig
+.eslintrc*
+.prettierrc*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build outputs
+dist
+build
+lib
+compiled
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# Test files and directories
+test
+spec
+tests
+__tests__
+*.test.js
+*.spec.js
+test-output
+test-results
+
+# Documentation (exclude development docs)
+docs
+*.md
+!README.md
+
+# Development tools and configurations
+benchmark
+.github
+.codecov.yml
+.travis.yml
+.circleci
+azure-pipelines.yml
+
+# Heap snapshots and memory dumps
+*.heapsnapshot
+*.heapdump
+*.cpuprofile
+.sentinel
+memory-dumps
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Package lock files (include package-lock.json, exclude others)
+yarn.lock
+pnpm-lock.yaml
+.yarn
+
+# Benchmark results
+benchmarks/results
+*.bench.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional directories
+examples
+packages
+
+# Development scripts
+scripts
+tools

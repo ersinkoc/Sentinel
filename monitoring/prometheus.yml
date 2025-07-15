@@ -1,0 +1,46 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Sentinel application
+  - job_name: 'sentinel-app'
+    static_configs:
+      - targets: ['app:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Sentinel dashboard
+  - job_name: 'sentinel-dashboard'
+    static_configs:
+      - targets: ['dashboard:3001']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s
+
+  # Node.js application metrics
+  - job_name: 'node-app'
+    static_configs:
+      - targets: ['app:3000']
+    metrics_path: '/api/node-metrics'
+    scrape_interval: 15s
+
+  # System metrics (if available)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s

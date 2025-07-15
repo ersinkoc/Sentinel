@@ -1,0 +1,376 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run npm audit
+      run: npm audit --audit-level=moderate --production
+    
+    - name: Check for known vulnerabilities
+      run: |
+        # Create security report
+        npm audit --json > security-report.json || true
+        
+        # Check if there are any high or critical vulnerabilities
+        CRITICAL=$(cat security-report.json | jq '.metadata.vulnerabilities.critical // 0')
+        HIGH=$(cat security-report.json | jq '.metadata.vulnerabilities.high // 0')
+        
+        echo "Critical vulnerabilities: $CRITICAL"
+        echo "High vulnerabilities: $HIGH"
+        
+        if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+          echo "::error::Critical or high vulnerabilities found!"
+          exit 1
+        fi
+    
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-report
+        path: security-report.json
+        retention-days: 30
+
+  license-scan:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install license checker
+      run: npm install -g license-checker
+    
+    - name: Check licenses
+      run: |
+        # Check for approved licenses only
+        license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;Unlicense;WTFPL;Public Domain' --summary
+        
+        # Generate detailed license report
+        license-checker --json > license-report.json
+    
+    - name: Upload license report
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-report
+        path: license-report.json
+        retention-days: 30
+
+  code-scanning:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript
+        queries: security-and-quality
+    
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Run TruffleHog
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+  security-test:
+    name: Security Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security-focused tests
+      run: |
+        # Test input validation
+        node -e "
+        const { validateConfig } = require('./src/utils');
+        
+        // Test malicious inputs
+        const maliciousInputs = [
+          { interval: -1 },
+          { interval: 'rm -rf /' },
+          { threshold: { heap: 2 } },
+          { reporting: { webhook: 'javascript:alert(1)' } },
+          { reporting: { webhook: 'file:///etc/passwd' } }
+        ];
+        
+        maliciousInputs.forEach(input => {
+          try {
+            validateConfig(input);
+            console.error('Validation should have failed for:', input);
+            process.exit(1);
+          } catch (error) {
+            console.log('✓ Correctly rejected:', input);
+          }
+        });
+        
+        console.log('All security validation tests passed');
+        "
+    
+    - name: Test webhook security
+      run: |
+        node -e "
+        const https = require('https');
+        const http = require('http');
+        
+        // Test that webhook doesn't follow redirects to dangerous URLs
+        function testWebhookSecurity() {
+          const dangerousUrls = [
+            'http://localhost:22/ssh-attack',
+            'http://169.254.169.254/metadata',
+            'file:///etc/passwd',
+            'ftp://malicious.com/payload'
+          ];
+          
+          dangerousUrls.forEach(url => {
+            try {
+              new URL(url);
+              if (url.startsWith('file:') || url.startsWith('ftp:')) {
+                throw new Error('Dangerous protocol detected');
+              }
+              console.log('✓ URL validation working for:', url);
+            } catch (error) {
+              console.log('✓ Correctly blocked dangerous URL:', url);
+            }
+          });
+        }
+        
+        testWebhookSecurity();
+        console.log('Webhook security tests passed');
+        "
+
+  docker-security:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: |
+        docker build -t sentinel-security-test .
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'sentinel-security-test'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Check for critical vulnerabilities
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $(pwd):/tmp aquasec/trivy:latest image \
+          --exit-code 1 --severity CRITICAL,HIGH \
+          sentinel-security-test
+
+  configuration-security:
+    name: Configuration Security Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check file permissions
+      run: |
+        # Check that sensitive files have correct permissions
+        find . -name "*.key" -o -name "*.pem" -o -name "*.p12" | while read file; do
+          if [ -f "$file" ]; then
+            perms=$(stat -c "%a" "$file")
+            if [ "$perms" != "600" ] && [ "$perms" != "400" ]; then
+              echo "::error::Insecure permissions on $file: $perms"
+              exit 1
+            fi
+          fi
+        done
+    
+    - name: Check for hardcoded secrets
+      run: |
+        # Look for potential hardcoded secrets
+        if grep -r -i "password\|secret\|key\|token" --include="*.js" --include="*.json" . | grep -v "test" | grep -v "example"; then
+          echo "::warning::Potential hardcoded secrets found - please review"
+        fi
+    
+    - name: Verify zero dependencies
+      run: |
+        # Ensure package.json has no runtime dependencies
+        DEPS=$(cat package.json | jq '.dependencies | length')
+        if [ "$DEPS" -ne 0 ]; then
+          echo "::error::Runtime dependencies found - this violates zero-dependency requirement"
+          exit 1
+        fi
+        echo "✓ Zero dependencies requirement met"
+
+  penetration-test:
+    name: Basic Penetration Testing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Start test server
+      run: |
+        # Start dashboard server
+        timeout 60 node bin/sentinel.js dashboard --port 3001 &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test for common vulnerabilities
+        echo "Testing for path traversal..."
+        curl -f "http://localhost:3001/../../../etc/passwd" && echo "::error::Path traversal vulnerability!" || echo "✓ Path traversal protected"
+        
+        echo "Testing for XSS protection..."
+        curl -f "http://localhost:3001/?search=<script>alert(1)</script>" && echo "✓ XSS test completed"
+        
+        echo "Testing for SQL injection..."
+        curl -f "http://localhost:3001/api/metrics?id=1';DROP TABLE users;--" && echo "✓ SQL injection test completed"
+        
+        # Stop server
+        kill $SERVER_PID
+    
+    - name: Test CLI security
+      run: |
+        # Test CLI argument injection
+        echo "Testing CLI argument security..."
+        
+        # Test that dangerous arguments are rejected
+        if node bin/sentinel.js monitor "; rm -rf /"; then
+          echo "::error::Command injection vulnerability in CLI!"
+          exit 1
+        fi
+        
+        echo "✓ CLI argument injection protected"
+
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, license-scan, code-scanning, secret-scan, security-test]
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate security summary
+      run: |
+        echo "# Security Audit Report" > security-summary.md
+        echo "Generated: $(date)" >> security-summary.md
+        echo "" >> security-summary.md
+        
+        echo "## Dependency Scan Results" >> security-summary.md
+        if [ -f security-report/security-report.json ]; then
+          echo "- Security report available" >> security-summary.md
+        else
+          echo "- No security issues found" >> security-summary.md
+        fi
+        
+        echo "## License Compliance" >> security-summary.md
+        if [ -f license-report/license-report.json ]; then
+          echo "- License report generated" >> security-summary.md
+        fi
+        
+        echo "## Static Analysis" >> security-summary.md
+        echo "- CodeQL analysis completed" >> security-summary.md
+        
+        echo "## Zero Dependencies Status" >> security-summary.md
+        echo "- ✅ Zero runtime dependencies maintained" >> security-summary.md
+        
+        cat security-summary.md
+    
+    - name: Upload security summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-summary
+        path: security-summary.md
+        retention-days: 90

@@ -1,0 +1,20 @@
+{
+  "source": {
+    "include": ["./src", "./packages", "./index.js"],
+    "includePattern": "\\.(js)$",
+    "excludePattern": "node_modules/"
+  },
+  "opts": {
+    "destination": "./docs/",
+    "recurse": true
+  },
+  "plugins": ["plugins/markdown"],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false
+  },
+  "tags": {
+    "allowUnknownTags": true,
+    "dictionaries": ["jsdoc", "closure"]
+  }
+}
