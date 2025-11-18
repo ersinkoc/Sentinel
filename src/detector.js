@@ -89,9 +89,13 @@ class Detector extends EventEmitter {
   
   _detectRapidGrowth(metrics) {
     if (!this.baseline) return null;
-    
+
     const currentHeap = metrics.heap.used;
     const baselineHeap = this.baseline.avgHeapSize;
+
+    // Avoid division by zero
+    if (baselineHeap === 0) return null;
+
     const growthRate = ((currentHeap - baselineHeap) / baselineHeap) * 100;
     
     if (growthRate > this.config.threshold.growth * 100) {
@@ -114,9 +118,10 @@ class Detector extends EventEmitter {
     
     const heapSizes = recentSamples.map(s => s.heap.used);
     const trend = this._calculateTrend(heapSizes);
-    
+
     if (trend.slope > 0 && trend.r2 > 0.8) { // Strong positive correlation
-      const growthPerMinute = trend.slope * 60000 / this.config.interval;
+      const interval = this.config.monitoring?.interval || this.config.interval || 30000;
+      const growthPerMinute = trend.slope * 60000 / interval;
       
       return {
         severity: 'medium',
@@ -163,8 +168,9 @@ class Detector extends EventEmitter {
     const recentGCs = this.baselineSamples
       .slice(-10)
       .reduce((count, s) => count + (s.gc ? s.gc.length : 0), 0);
-    
-    const timeWindow = 10 * this.config.interval / 60000; // in minutes
+
+    const interval = this.config.monitoring?.interval || this.config.interval || 30000;
+    const timeWindow = 10 * interval / 60000; // in minutes
     const gcPerMinute = recentGCs / timeWindow;
     
     if (gcPerMinute > this.config.threshold.gcFrequency) {

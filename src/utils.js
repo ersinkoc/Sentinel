@@ -63,11 +63,11 @@ function validateConfig(config) {
 
     return true;
 
-  } catch {
+  } catch (error) {
     if (error instanceof ConfigurationError || error instanceof SecurityError) {
       throw error;
     }
-    
+
     throw new ConfigurationError(
       `Configuration validation failed: ${error.message}`,
       ['validation'],
@@ -294,11 +294,23 @@ function validateWebhookURL(url, securityIssues) {
       securityIssues.push('webhook URL must use HTTP or HTTPS protocol');
     }
     
-    if (parsedURL.hostname === 'localhost' || parsedURL.hostname === '127.0.0.1') {
+    if (parsedURL.hostname === 'localhost' || parsedURL.hostname === '127.0.0.1' || parsedURL.hostname === '::1') {
       securityIssues.push('webhook URL should not point to localhost in production');
     }
-    
-    if (parsedURL.hostname.startsWith('169.254.') || parsedURL.hostname.startsWith('192.168.')) {
+
+    // Check for all private IP ranges (RFC 1918 and link-local)
+    const hostname = parsedURL.hostname;
+    const privateRanges = [
+      /^10\./, // 10.0.0.0/8
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
+      /^192\.168\./, // 192.168.0.0/16
+      /^169\.254\./, // 169.254.0.0/16 (link-local)
+      /^127\./, // 127.0.0.0/8 (loopback)
+      /^fc00:/i, // IPv6 unique local address
+      /^fe80:/i  // IPv6 link-local
+    ];
+
+    if (privateRanges.some(pattern => pattern.test(hostname))) {
       securityIssues.push('webhook URL should not point to private network ranges');
     }
     
@@ -627,7 +639,7 @@ function createSafeTimer(callback, interval, maxExecutions = Infinity) {
           timerId = setTimeout(safeCallback, interval);
         }
       }
-    } catch {
+    } catch (error) {
       console.error('[Sentinel Timer Error]', error);
       // Continue timer even if callback fails
       if (executions < maxExecutions) {
@@ -694,7 +706,7 @@ function createResourcePool(createResource, destroyResource, maxSize = 10) {
       for (const resource of [...pool, ...inUse]) {
         try {
           await destroyResource(resource);
-        } catch {
+        } catch (error) {
           console.error('Error destroying resource:', error);
         }
       }

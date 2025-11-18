@@ -196,11 +196,20 @@ class Reporter {
     return summary;
   }
   
-  flush() {
+  async flush() {
     // Ensure all pending reports are written
     if (this.logFile) {
       const summary = `\nSentinel monitoring ended at ${new Date().toISOString()}\n`;
-      fs.appendFileSync(this.logFile, summary);
+      try {
+        await appendFile(this.logFile, summary);
+      } catch (error) {
+        // Fallback to sync if async fails (e.g., during process shutdown)
+        try {
+          fs.appendFileSync(this.logFile, summary);
+        } catch {
+          // Ignore errors during shutdown
+        }
+      }
     }
   }
   

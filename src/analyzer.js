@@ -115,8 +115,7 @@ class Analyzer {
     const objects = new Map();
     const nodeFieldCount = nodeFields.length;
     const edgeFieldCount = edgeFields.length;
-    
-    // const nodeIndex = 0;
+
     let edgeIndex = 0;
     
     for (let i = 0; i < nodes.length; i += nodeFieldCount) {

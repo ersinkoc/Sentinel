@@ -195,10 +195,12 @@ class Sentinel extends EventEmitter {
     process.on('uncaughtException', (error) => {
       console.error('Uncaught Exception:', error);
       this.emit('error', new SentinelError('Uncaught exception', 'UNCAUGHT_EXCEPTION', { error: error.message }));
-      
-      // Gracefully shutdown
+
+      // Gracefully shutdown with timeout to allow async cleanup
       this.stop();
-      process.exit(1);
+      setTimeout(() => {
+        process.exit(1);
+      }, 1000); // Allow 1 second for cleanup operations
     });
 
     process.on('unhandledRejection', (reason, promise) => {
