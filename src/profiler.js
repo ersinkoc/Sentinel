@@ -90,24 +90,31 @@ class Profiler extends EventEmitter {
     if (!this.session) {
       throw new Error('No tracking session active');
     }
-    
+
     const chunks = [];
-    
+
     // Set up event listener for heap snapshot chunks
-    this.session.on('HeapProfiler.addHeapSnapshotChunk', (message) => {
+    const chunkHandler = (message) => {
       chunks.push(message.params.chunk);
-    });
-    
-    // Take snapshot
-    await this._post('HeapProfiler.takeHeapSnapshot', {
-      reportProgress: false
-    });
-    
-    // Parse snapshot data
-    const snapshotData = chunks.join('');
-    const snapshot = JSON.parse(snapshotData);
-    
-    return this._analyzeAllocationSnapshot(snapshot);
+    };
+
+    try {
+      this.session.on('HeapProfiler.addHeapSnapshotChunk', chunkHandler);
+
+      // Take snapshot
+      await this._post('HeapProfiler.takeHeapSnapshot', {
+        reportProgress: false
+      });
+
+      // Parse snapshot data
+      const snapshotData = chunks.join('');
+      const snapshot = JSON.parse(snapshotData);
+
+      return this._analyzeAllocationSnapshot(snapshot);
+    } finally {
+      // Always cleanup the event listener
+      this.session.removeListener('HeapProfiler.addHeapSnapshotChunk', chunkHandler);
+    }
   }
   
   _processProfile(profile) {

@@ -82,11 +82,34 @@ async function monitorScript(scriptPath, options) {
     nodeArgs.push('--inspect');
   }
   
-  // Set environment variables for Sentinel configuration
+  // Set environment variables for Sentinel configuration with validation
   const env = { ...process.env };
-  if (options.interval) env.SENTINEL_INTERVAL = options.interval;
-  if (options.threshold) env.SENTINEL_THRESHOLD = options.threshold;
-  if (options.sensitivity) env.SENTINEL_SENSITIVITY = options.sensitivity;
+
+  if (options.interval) {
+    const interval = parseInt(options.interval, 10);
+    if (interval >= 1000 && interval <= 300000) {
+      env.SENTINEL_INTERVAL = interval.toString();
+    } else {
+      console.warn(colorize(`Warning: Interval must be between 1000 and 300000ms. Using default.`, 'yellow'));
+    }
+  }
+
+  if (options.threshold) {
+    const threshold = parseFloat(options.threshold);
+    if (threshold >= 0 && threshold <= 1) {
+      env.SENTINEL_THRESHOLD = threshold.toString();
+    } else {
+      console.warn(colorize(`Warning: Threshold must be between 0 and 1. Using default.`, 'yellow'));
+    }
+  }
+
+  if (options.sensitivity) {
+    if (['low', 'medium', 'high'].includes(options.sensitivity)) {
+      env.SENTINEL_SENSITIVITY = options.sensitivity;
+    } else {
+      console.warn(colorize(`Warning: Sensitivity must be low, medium, or high. Using default.`, 'yellow'));
+    }
+  }
   if (options.output) env.SENTINEL_OUTPUT = options.output;
   if (options.webhook) env.SENTINEL_WEBHOOK = options.webhook;
   
@@ -410,11 +433,21 @@ async function startDashboard(options) {
   
   const port = options.port || 3001;
   const host = options.host || 'localhost';
-  
+
+  // Parse auth string if provided (format: username:password)
+  let authConfig = null;
+  if (options.auth) {
+    const authParts = options.auth.split(':');
+    authConfig = {
+      username: authParts[0] || 'admin',
+      password: authParts[1] || authParts[0] // If no colon, use entire string as password
+    };
+  }
+
   const dashboard = new SentinelDashboard(sentinel, {
-    port: parseInt(port),
+    port: parseInt(port, 10),
     host,
-    auth: options.auth ? { username: 'admin', password: options.auth } : null
+    auth: authConfig
   });
   
   try {

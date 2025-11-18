@@ -616,14 +616,34 @@ class SecurityManager extends EventEmitter {
   }
   
   _validateToken(_token) {
-    // Implement proper token validation here
-    // This is a placeholder implementation
-    return _token && _token.length > 10;
+    // WARNING: This is a PLACEHOLDER implementation
+    // MUST be replaced with proper JWT/session token validation in production
+    // TODO: Integrate with your authentication system (e.g., JWT verify, session validation)
+    if (!_token || typeof _token !== 'string') {
+      return false;
+    }
+
+    // Basic sanity checks (NOT secure for production)
+    if (_token.length < 32 || _token.length > 1024) {
+      return false;
+    }
+
+    // Check for suspicious patterns
+    if (_token.includes('..') || _token.includes('<') || _token.includes('>')) {
+      return false;
+    }
+
+    // TODO: Replace with actual token verification:
+    // - JWT: jsonwebtoken.verify(token, secret)
+    // - Session: validate against session store
+    // - OAuth: validate with identity provider
+    return true;
   }
-  
+
   _getUserPermissions(_token) {
-    // Implement proper permission extraction here
-    // This is a placeholder implementation
+    // WARNING: This is a PLACEHOLDER implementation
+    // MUST be replaced with proper permission extraction from your auth system
+    // TODO: Extract permissions from validated token claims or session data
     return ['read', 'monitor'];
   }
   
@@ -711,10 +731,10 @@ class SecurityManager extends EventEmitter {
       );
       
       // Encrypt
-      const cipher = crypto.createCipher(algorithm, key);
+      const cipher = crypto.createCipheriv(algorithm, key, iv);
       let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
+
       const authTag = cipher.getAuthTag ? cipher.getAuthTag() : Buffer.alloc(0);
       
       return {
@@ -735,8 +755,8 @@ class SecurityManager extends EventEmitter {
   
   async decrypt(encryptedData, password) {
     try {
-      const { encrypted, salt, authTag, algorithm } = encryptedData;
-      
+      const { encrypted, salt, iv, authTag, algorithm } = encryptedData;
+
       // Derive key
       const key = crypto.pbkdf2Sync(
         password,
@@ -745,9 +765,9 @@ class SecurityManager extends EventEmitter {
         32,
         'sha256'
       );
-      
+
       // Decrypt
-      const decipher = crypto.createDecipher(algorithm, key);
+      const decipher = crypto.createDecipheriv(algorithm, key, Buffer.from(iv, 'hex'));
       
       if (authTag) {
         decipher.setAuthTag(Buffer.from(authTag, 'hex'));

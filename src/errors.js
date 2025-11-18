@@ -310,6 +310,7 @@ class CircuitBreaker {
   }
 
   async execute(operation, _context = {}) {
+    // Check if circuit is open
     if (this.state === 'OPEN') {
       if (Date.now() < this.nextAttempt) {
         throw new StateError(
@@ -319,7 +320,19 @@ class CircuitBreaker {
           { nextAttempt: this.nextAttempt }
         );
       } else {
-        this.state = 'HALF_OPEN';
+        // Atomic transition: only first caller transitions to HALF_OPEN
+        // Use a simple flag to prevent race conditions
+        if (this.state === 'OPEN') {
+          this.state = 'HALF_OPEN';
+        } else if (this.state === 'HALF_OPEN') {
+          // Another concurrent operation already transitioned - block this one
+          throw new StateError(
+            'Circuit breaker is in HALF_OPEN state - test in progress',
+            'HALF_OPEN',
+            'CLOSED',
+            { nextAttempt: this.nextAttempt }
+          );
+        }
       }
     }
 
@@ -328,7 +341,7 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      this.onFailure(error);
+      this.onFailure(error, _context);
       throw error;
     }
   }
